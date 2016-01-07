@@ -14,6 +14,87 @@ namespace EntryPoint
         }
     }
 
+    interface ITree<T>
+    {
+        bool IsEmpty { get; }
+        bool IsXSorted { get; }
+        T Value { get; }
+        ITree<T> Left { get; }
+        ITree<T> Right { get; }
+    }
+
+    class Empty<T> : ITree<T>
+    {
+        public bool IsEmpty
+        {
+            get
+            {
+                return true;
+            }
+        }
+
+        public bool IsXSorted
+        {
+            get
+            {
+                return false;
+            }
+        }
+
+        public ITree<T> Left
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public ITree<T> Right
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public T Value
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
+    }
+
+    class Node<T> : ITree<T>
+    {
+        public bool IsEmpty
+        {
+            get
+            {
+                return false;
+            }
+        }
+
+        public bool IsXSorted { get; set; }
+
+        public ITree<T> Left { get; set; }
+
+        public ITree<T> Right { get; set; }
+
+        public T Value { get; set; }
+
+        public Node(ITree<T> l, T v, ITree<T> r, bool x)
+        {
+            Value = v;
+            Left = l;
+            Right = r;
+            IsXSorted = x;
+        }
+    }
+
+
+
 #if WINDOWS || LINUX
     public static class Program
     {
@@ -54,7 +135,7 @@ namespace EntryPoint
             TupleList<Vector2, float> SpecialBuildingsTuple = new TupleList<Vector2, float>();
 
             // For every Vector2 in specialBuildings add it to the tuple list + add the distance between the house and that vector
-            foreach(Vector2 v in specialBuildings)
+            foreach (Vector2 v in specialBuildings)
             {
                 SpecialBuildingsTuple.Add(v, Vector2.Distance(house, v));
             }
@@ -70,12 +151,37 @@ namespace EntryPoint
           IEnumerable<Vector2> specialBuildings,
           IEnumerable<Tuple<Vector2, float>> housesAndDistances)
         {
-            return
-                from h in housesAndDistances
-                select
-                  from s in specialBuildings
-                  where Vector2.Distance(h.Item1, s) <= h.Item2
-                  select s;
+            var KDtree = new Empty<Vector2>() as ITree<Vector2>;
+
+
+            foreach (Vector2 specialBuilding in specialBuildings)
+            {
+                KDtree = Insert(KDtree, specialBuilding, KDtree.IsXSorted);
+            }
+
+            List<List<Vector2>> buildings_in_range_all = new List<List<Vector2>>();
+
+            foreach (Tuple<Vector2, float> house in housesAndDistances)
+            {
+                List<Vector2> buildings_in_range = new List<Vector2>();
+                get_buildings_in_range(house.Item1, house.Item2, KDtree, buildings_in_range);
+                buildings_in_range_all.Add(buildings_in_range);
+
+                Console.WriteLine(buildings_in_range.Count);
+            }
+
+
+
+            return buildings_in_range_all;
+
+
+
+            //return
+            //    from h in housesAndDistances
+            //    select
+            //      from s in specialBuildings
+            //      where Vector2.Distance(h.Item1, s) <= h.Item2
+            //      select s;
         }
 
         private static IEnumerable<Tuple<Vector2, Vector2>> FindRoute(Vector2 startingBuilding,
@@ -111,6 +217,105 @@ namespace EntryPoint
             return result;
         }
 
+        static void PrintPreOrder<T>(ITree<T> t)
+        {
+            if (t.IsEmpty) return;
+            Console.WriteLine(t.Value);
+            PrintPreOrder(t.Left);
+            PrintPreOrder(t.Right);
+        }
+
+        static void get_buildings_in_range(Vector2 house, float radius, ITree<Vector2> KDTree, List<Vector2> l)
+        {
+
+            if (!KDTree.IsEmpty)
+            {
+                
+                if (KDTree.IsXSorted)
+                {
+                    Console.WriteLine("House: " + house.X + "," + house.Y + " building: " + KDTree.Value.X + "," + KDTree.Value.Y + " Radius: " + radius+ " X");
+                    if (Math.Abs(house.X - KDTree.Value.X) < radius)
+                    {
+                        Console.WriteLine(Math.Abs(house.X - KDTree.Value.X));
+                        if (Vector2.Distance(KDTree.Value, house) < radius)
+                        {
+                            Console.WriteLine(Vector2.Distance(KDTree.Value, house) + " " + radius);
+                            l.Add(KDTree.Value);
+                        }
+                        get_buildings_in_range(house, radius, KDTree.Left, l);
+                        get_buildings_in_range(house, radius, KDTree.Right, l);
+                    }
+
+                    else if ((house.X - KDTree.Value.X) > radius)
+                    {
+                        get_buildings_in_range(house, radius, KDTree.Right, l);
+                    }
+                    else if ((KDTree.Value.X - house.X) > radius)
+                    {
+                        get_buildings_in_range(house, radius, KDTree.Left, l);
+                    }
+
+                }
+                else
+                {
+                    Console.WriteLine("House: " + house.X + "," + house.Y + " building: " + KDTree.Value.X + "," + KDTree.Value.Y + " Radius: " + radius+" Y");
+                    if (Math.Abs(house.Y - KDTree.Value.Y) < radius)
+                    {
+                        Console.WriteLine(Math.Abs(house.Y - KDTree.Value.Y));
+                        if (Vector2.Distance(KDTree.Value, house) < radius)
+                        {
+                            Console.WriteLine(Vector2.Distance(KDTree.Value, house) + " " + radius);
+                            l.Add(KDTree.Value);
+                        }
+                        get_buildings_in_range(house, radius, KDTree.Left, l);
+                        get_buildings_in_range(house, radius, KDTree.Right, l);
+                    }
+
+                    else if ((house.Y - KDTree.Value.Y) > radius)
+                    {
+                        get_buildings_in_range(house, radius, KDTree.Right, l);
+                    }
+                    else if ((KDTree.Value.Y - house.Y) > radius)
+                    {
+                        get_buildings_in_range(house, radius, KDTree.Left, l);
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine("end of tree");
+            }
+
+        }
+
+        static ITree<Vector2> Insert(ITree<Vector2> t, Vector2 v, bool parentIsX)
+        {
+            if (t.IsEmpty)
+                if (parentIsX)
+                    return new Node<Vector2>(new Empty<Vector2>(), v, new Empty<Vector2>(), false);
+                else
+                    return new Node<Vector2>(new Empty<Vector2>(), v, new Empty<Vector2>(), true);
+            if (t.IsXSorted)
+            {
+                if (t.Value.X == v.X)
+                    return t;
+
+                if (v.X < t.Value.X)
+                    return new Node<Vector2>(Insert(t.Left, v, t.IsXSorted), t.Value, t.Right, true);
+                else
+                    return new Node<Vector2>(t.Left, t.Value, Insert(t.Right, v, t.IsXSorted), true);
+            }
+            else
+            {
+                if (t.Value.Y == v.Y)
+                    return t;
+
+                if (v.Y < t.Value.Y)
+                    return new Node<Vector2>(Insert(t.Left, v, t.IsXSorted), t.Value, t.Right, false);
+                else
+                    return new Node<Vector2>(t.Left, t.Value, Insert(t.Right, v, t.IsXSorted), false);
+            }
+        }
 
         public static void merge_sort(TupleList<Vector2, float> list, int left, int right)
         {
