@@ -170,7 +170,7 @@ namespace EntryPoint
                 Console.WriteLine(buildings_in_range.Count);
             }
 
-
+            PrintPreOrder(KDtree);
 
             return buildings_in_range_all;
 
@@ -237,7 +237,7 @@ namespace EntryPoint
                     if (Math.Abs(house.X - KDTree.Value.X) < radius)
                     {
                         Console.WriteLine(Math.Abs(house.X - KDTree.Value.X));
-                        if (Vector2.Distance(KDTree.Value, house) < radius)
+                        if (Vector2.Distance(KDTree.Value, house) <= radius)
                         {
                             Console.WriteLine(Vector2.Distance(KDTree.Value, house) + " " + radius);
                             l.Add(KDTree.Value);
@@ -259,7 +259,7 @@ namespace EntryPoint
                 else
                 {
                     Console.WriteLine("House: " + house.X + "," + house.Y + " building: " + KDTree.Value.X + "," + KDTree.Value.Y + " Radius: " + radius+" Y");
-                    if (Math.Abs(house.Y - KDTree.Value.Y) < radius)
+                    if (Math.Abs(house.Y - KDTree.Value.Y) <= radius)
                     {
                         Console.WriteLine(Math.Abs(house.Y - KDTree.Value.Y));
                         if (Vector2.Distance(KDTree.Value, house) < radius)
@@ -291,13 +291,15 @@ namespace EntryPoint
         static ITree<Vector2> Insert(ITree<Vector2> t, Vector2 v, bool parentIsX)
         {
             if (t.IsEmpty)
+            {
                 if (parentIsX)
                     return new Node<Vector2>(new Empty<Vector2>(), v, new Empty<Vector2>(), false);
                 else
                     return new Node<Vector2>(new Empty<Vector2>(), v, new Empty<Vector2>(), true);
+            }
             if (t.IsXSorted)
             {
-                if (t.Value.X == v.X)
+                if (t.Value == v)
                     return t;
 
                 if (v.X < t.Value.X)
@@ -307,7 +309,7 @@ namespace EntryPoint
             }
             else
             {
-                if (t.Value.Y == v.Y)
+                if (t.Value == v)
                     return t;
 
                 if (v.Y < t.Value.Y)
