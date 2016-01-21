@@ -170,18 +170,11 @@ namespace EntryPoint
                 Console.WriteLine(buildings_in_range.Count);
             }
 
-            PrintPreOrder(KDtree);
 
             return buildings_in_range_all;
 
 
-
-            //return
-            //    from h in housesAndDistances
-            //    select
-            //      from s in specialBuildings
-            //      where Vector2.Distance(h.Item1, s) <= h.Item2
-            //      select s;
+     
         }
 
         private static IEnumerable<Tuple<Vector2, Vector2>> FindRoute(Vector2 startingBuilding,
@@ -201,6 +194,32 @@ namespace EntryPoint
         private static IEnumerable<IEnumerable<Tuple<Vector2, Vector2>>> FindRoutesToAll(Vector2 startingBuilding,
           IEnumerable<Vector2> destinationBuildings, IEnumerable<Tuple<Vector2, Vector2>> roads)
         {
+            IEnumerable<Vector2> nodes = get_all_nodes(roads);
+            int size_nodes = nodes.Count();
+            int size_roads = roads.Count();
+            int[,] matrix = new int[size_nodes,size_nodes];
+            Console.Write(size_nodes);
+            // Create matrix
+            for (int i = 0; i < size_nodes; i++)
+            {
+                for (int j = 0; j < size_roads; j++)
+                {
+
+                    if (equals(nodes.ElementAt(i), nodes.ElementAt(j)))
+                        matrix[i, j] = 0;
+                    else if (equals(roads.ElementAt(i).Item2, roads.ElementAt(j).Item1))
+                        matrix[i, j] = 1;
+                    else
+                        matrix[i, j] = Int32.MaxValue;
+
+                }
+            }
+            Console.WriteLine("Done matrix 1");
+            matrix = floyd_warshall(matrix);
+            printMatrix(matrix);
+
+
+
             List<List<Tuple<Vector2, Vector2>>> result = new List<List<Tuple<Vector2, Vector2>>>();
             foreach (var d in destinationBuildings)
             {
@@ -377,7 +396,87 @@ namespace EntryPoint
 
         }
 
+        public static int[,] floyd_warshall(int[,] M)
+        {
+            for (int k = 0; k < M.Length; k++)
+            {
+                for (int i = 0; i < M.Length; i++)
+                {
+                    for (int j = 0; j < M.Length; j++)
+                    {
+                        // to keep track.;
+                        if (M[i,k] + M[k,j] < M[i,j])
+                        {
+                            M[i,j] = M[i,k] + M[k,j];
+                            //P[i][j] = k;
+                        }
+                        // or not to keep track.
+                        //M[i][j] = min(M[i][j], M[i][k] + M[k][j]);
+                    }
+                }
+            }
+            return M;
+        }
+
+        public static void printMatrix(int[,] Matrix)
+        {
+            Console.Write("\n\t");
+            for (int j = 0; j < Matrix.Length; j++)
+            {
+                Console.Write(j + "\t");
+            }
+            Console.WriteLine();
+            for (int j = 0; j < 35; j++)
+            {
+                Console.Write("-");
+            }
+            Console.WriteLine();
+            for (int i = 0; i < Matrix.Length; i++)
+            {
+                Console.Write(i + " |\t");
+                for (int j = 0; j < Matrix.Length; j++)
+                {
+                    Console.Write(Matrix[i,j]);
+                    Console.Write("\t");
+                }
+                Console.WriteLine("\n");
+            }
+            Console.WriteLine("\n");
+        }
+
+        public static IEnumerable<Vector2> get_all_nodes(IEnumerable<Tuple<Vector2, Vector2>> list)
+        {
+            List<Vector2> list_with_nodes = new List<Vector2>();
+            foreach (var item in list)
+            {
+                bool dont_add = false;
+                foreach (var vector in list_with_nodes)
+                {
+                    if(equals(item.Item1, vector))
+                    {
+                        dont_add = true;
+                        break;
+                    }
+                }
+                if (!dont_add)
+                    list_with_nodes.Add(item.Item1);
+            }
+
+            return list_with_nodes;
+        }
+
+        public static bool equals(Vector2 v1, Vector2 v2)
+        {
+            if( v1.X == v2.X && v1.Y == v2.Y)
+            {
+                return true;
+            }
+            return false;
+        }
+
     }
+
+   
 
 
 #endif
