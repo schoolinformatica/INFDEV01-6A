@@ -45,6 +45,10 @@
     <StartupObject />
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Binarytree.cs" />
+    <Compile Include="IKDTree.cs" />
+    <Compile Include="ITree.cs" />
+    <Compile Include="kdtree.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

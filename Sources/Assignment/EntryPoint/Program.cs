@@ -6,6 +6,7 @@ using System.Linq;
 namespace EntryPoint
 {
 
+
     public class TupleList<T1, T2> : List<Tuple<T1, T2>>
     {
         public void Add(T1 item1, T2 item2)
@@ -14,84 +15,9 @@ namespace EntryPoint
         }
     }
 
-    interface ITree<T>
-    {
-        bool IsEmpty { get; }
-        bool IsXSorted { get; }
-        T Value { get; }
-        ITree<T> Left { get; }
-        ITree<T> Right { get; }
-    }
 
-    class Empty<T> : ITree<T>
-    {
-        public bool IsEmpty
-        {
-            get
-            {
-                return true;
-            }
-        }
 
-        public bool IsXSorted
-        {
-            get
-            {
-                return false;
-            }
-        }
 
-        public ITree<T> Left
-        {
-            get
-            {
-                throw new NotImplementedException();
-            }
-        }
-
-        public ITree<T> Right
-        {
-            get
-            {
-                throw new NotImplementedException();
-            }
-        }
-
-        public T Value
-        {
-            get
-            {
-                throw new NotImplementedException();
-            }
-        }
-    }
-
-    class Node<T> : ITree<T>
-    {
-        public bool IsEmpty
-        {
-            get
-            {
-                return false;
-            }
-        }
-
-        public bool IsXSorted { get; set; }
-
-        public ITree<T> Left { get; set; }
-
-        public ITree<T> Right { get; set; }
-
-        public T Value { get; set; }
-
-        public Node(ITree<T> l, T v, ITree<T> r, bool x)
-        {
-            Value = v;
-            Left = l;
-            Right = r;
-            IsXSorted = x;
-        }
-    }
 
 
 
@@ -151,7 +77,7 @@ namespace EntryPoint
           IEnumerable<Vector2> specialBuildings,
           IEnumerable<Tuple<Vector2, float>> housesAndDistances)
         {
-            var KDtree = new Empty<Vector2>() as ITree<Vector2>;
+            var KDtree = new Empty<Vector2>() as IKDTree<Vector2>;
 
 
             foreach (Vector2 specialBuilding in specialBuildings)
@@ -174,12 +100,119 @@ namespace EntryPoint
             return buildings_in_range_all;
 
 
-     
+
         }
 
         private static IEnumerable<Tuple<Vector2, Vector2>> FindRoute(Vector2 startingBuilding,
           Vector2 destinationBuilding, IEnumerable<Tuple<Vector2, Vector2>> roads)
         {
+
+            List<Tuple<Vector2, Vector2>> path = new List<Tuple<Vector2, Vector2>>();
+
+            int roadnummer = 0;
+            Dictionary<Vector2, int> cache = new Dictionary<Vector2, int>();
+            foreach (Tuple<Vector2, Vector2> road in roads)
+            {
+                if (!cache.ContainsKey(road.Item1))
+                {
+                    cache.Add(road.Item1, roadnummer++);
+                }
+
+                if (!cache.ContainsKey(road.Item2))
+                {
+                    cache.Add(road.Item2, roadnummer++);
+                }
+            }
+
+
+            int[][] node_with_neigbours = new int[cache.Count][];
+
+            foreach (var item in cache)
+            {
+                List<int> neighbours = new List<int>();
+                foreach (var road in roads)
+                {
+                    if (item.Key == road.Item1)
+                        neighbours.Add(cache[road.Item2]);
+                }
+                node_with_neigbours[item.Value] = neighbours.ToArray();
+            }
+
+            int[] pred = new int[cache.Count];
+            pred[cache[startingBuilding]] = cache[startingBuilding]; 
+
+
+            float[] dist = new float[cache.Count];
+
+
+            for (int i = 0; i < cache.Count; i++)
+            {
+             dist[i] = float.MaxValue;
+
+             
+            }
+
+            dist[cache[startingBuilding]] = 0;
+
+
+            //foreach (Tuple<Vector2, Vector2> road in roads)
+            //{
+            //    matrix_dist[cache[road.Item1], cache[road.Item2]] = Vector2.Distance(road.Item1, road.Item2);
+            //}
+
+            var priority_que = new BinaryEmpty<Tuple<int, float>>() as ITree<Tuple<int, float>>;
+
+            foreach (var item in cache)
+            {
+                var tuple = new Tuple<int, float>(item.Value, dist[item.Value]);
+                priority_que = Insert(priority_que, tuple);
+            }
+
+            while (!priority_que.IsEmpty)
+            {
+                int matrix_index = priority_que.get_min().Item1;
+                priority_que = delete(priority_que, priority_que.get_min());
+                foreach (var node in node_with_neigbours[matrix_index])
+                {
+                    float distance_via_to_node = dist[matrix_index]
+                        + Vector2.Distance(cache.FirstOrDefault(x => x.Value == matrix_index).Key,
+                        cache.FirstOrDefault(x => x.Value == node).Key);
+
+                    float distance_direct_to_node = dist[node];
+
+                    if (distance_via_to_node < distance_direct_to_node)
+                    {
+                        dist[node] = distance_via_to_node;
+
+                        Tuple<int, float> tuple_direct_to_node = new Tuple<int, float>(node, distance_direct_to_node);
+                        Tuple<int, float> tuple_via_to_node = new Tuple<int, float>(node, distance_via_to_node);
+
+
+                        priority_que = update(priority_que, tuple_direct_to_node, tuple_via_to_node);
+
+                        pred[node] = matrix_index;
+                    }
+                }
+            }
+
+            List<int> result = new List<int>();
+            result.Add(cache[destinationBuilding]);
+            pathcalc(pred, cache[startingBuilding], cache[destinationBuilding], result);
+
+            List<Vector2> vectors = new List<Vector2>();
+         
+
+            for(int i = 0; i < result.Count; i++)
+            {
+                vectors.Add(cache.FirstOrDefault(x => x.Value == result[i]).Key);
+            }
+
+            path = pathlist(vectors);
+
+            return path;
+
+            Console.WriteLine("from start to end " + dist[cache[destinationBuilding]] );
+
             var startingRoad = roads.Where(x => x.Item1.Equals(startingBuilding)).First();
             List<Tuple<Vector2, Vector2>> fakeBestPath = new List<Tuple<Vector2, Vector2>>() { startingRoad };
             var prevRoad = startingRoad;
@@ -197,7 +230,7 @@ namespace EntryPoint
             IEnumerable<Vector2> nodes = get_all_nodes(roads);
             int size_nodes = nodes.Count();
             int size_roads = roads.Count();
-            int[,] matrix = new int[size_nodes,size_nodes];
+            int[,] matrix = new int[size_nodes, size_nodes];
             Console.Write(size_nodes);
             // Create matrix
             for (int i = 0; i < size_nodes; i++)
@@ -236,7 +269,7 @@ namespace EntryPoint
             return result;
         }
 
-        static void PrintPreOrder<T>(ITree<T> t)
+        static void PrintPreOrder<T>(IKDTree<T> t)
         {
             if (t.IsEmpty) return;
             Console.WriteLine(t.Value);
@@ -244,15 +277,15 @@ namespace EntryPoint
             PrintPreOrder(t.Right);
         }
 
-        static void get_buildings_in_range(Vector2 house, float radius, ITree<Vector2> KDTree, List<Vector2> l)
+        static void get_buildings_in_range(Vector2 house, float radius, IKDTree<Vector2> KDTree, List<Vector2> l)
         {
 
             if (!KDTree.IsEmpty)
             {
-                
+
                 if (KDTree.IsXSorted)
                 {
-                    Console.WriteLine("House: " + house.X + "," + house.Y + " building: " + KDTree.Value.X + "," + KDTree.Value.Y + " Radius: " + radius+ " X");
+                    Console.WriteLine("House: " + house.X + "," + house.Y + " building: " + KDTree.Value.X + "," + KDTree.Value.Y + " Radius: " + radius + " X");
                     if (Math.Abs(house.X - KDTree.Value.X) < radius)
                     {
                         Console.WriteLine(Math.Abs(house.X - KDTree.Value.X));
@@ -277,7 +310,7 @@ namespace EntryPoint
                 }
                 else
                 {
-                    Console.WriteLine("House: " + house.X + "," + house.Y + " building: " + KDTree.Value.X + "," + KDTree.Value.Y + " Radius: " + radius+" Y");
+                    Console.WriteLine("House: " + house.X + "," + house.Y + " building: " + KDTree.Value.X + "," + KDTree.Value.Y + " Radius: " + radius + " Y");
                     if (Math.Abs(house.Y - KDTree.Value.Y) <= radius)
                     {
                         Console.WriteLine(Math.Abs(house.Y - KDTree.Value.Y));
@@ -307,7 +340,21 @@ namespace EntryPoint
 
         }
 
-        static ITree<Vector2> Insert(ITree<Vector2> t, Vector2 v, bool parentIsX)
+        static ITree<Tuple<int, float>> Insert (ITree<Tuple<int, float>> t, Tuple<int, float> tuple)
+        {
+            if (t.IsEmpty)
+                return new BinaryTree<Tuple<int, float>>(new BinaryEmpty<Tuple<int, float>>(), tuple, new BinaryEmpty<Tuple<int, float>>());
+
+            if (t.Value.Item2 == tuple.Item2 && t.Value.Item1 == tuple.Item1)
+                return t;
+
+            if (tuple.Item2 < t.Value.Item2)
+                return new BinaryTree<Tuple<int, float>>(Insert(t.Left, tuple), t.Value, t.Right);
+            else
+                return new BinaryTree<Tuple<int, float>>(t.Left, t.Value, Insert(t.Right, tuple));
+        }
+
+        static IKDTree<Vector2> Insert(IKDTree<Vector2> t, Vector2 v, bool parentIsX)
         {
             if (t.IsEmpty)
             {
@@ -347,6 +394,29 @@ namespace EntryPoint
                 merge_sort(list, left, mid); // Merge_sort new left part
                 merge_sort(list, mid + 1, right); // Merge sort new right part
                 merge(list, left, mid, right); // Merge the lists
+            }
+        }
+
+        public static List<Tuple<Vector2, Vector2>> pathlist(List<Vector2> nodes)
+        {
+            List<Tuple<Vector2, Vector2>> result = new List<Tuple<Vector2, Vector2>>();
+            for(int i = nodes.Count -1; i > 0; i--)
+            {
+                result.Add(new Tuple<Vector2, Vector2>(nodes[i - 1], nodes[i]));
+            }
+            return result;
+        }
+
+        static void pathcalc(int[] pred, int startbuilding, int current_building, List<int> result)
+        {
+            if(pred[current_building] != startbuilding)
+            {
+                result.Add(pred[current_building]);
+                pathcalc(pred, startbuilding, pred[current_building], result);
+            }
+            else
+            {
+                result.Add(pred[startbuilding]);
             }
         }
 
@@ -405,9 +475,9 @@ namespace EntryPoint
                     for (int j = 0; j < M.Length; j++)
                     {
                         // to keep track.;
-                        if (M[i,k] + M[k,j] < M[i,j])
+                        if (M[i, k] + M[k, j] < M[i, j])
                         {
-                            M[i,j] = M[i,k] + M[k,j];
+                            M[i, j] = M[i, k] + M[k, j];
                             //P[i][j] = k;
                         }
                         // or not to keep track.
@@ -436,7 +506,7 @@ namespace EntryPoint
                 Console.Write(i + " |\t");
                 for (int j = 0; j < Matrix.Length; j++)
                 {
-                    Console.Write(Matrix[i,j]);
+                    Console.Write(Matrix[i, j]);
                     Console.Write("\t");
                 }
                 Console.WriteLine("\n");
@@ -452,7 +522,7 @@ namespace EntryPoint
                 bool dont_add = false;
                 foreach (var vector in list_with_nodes)
                 {
-                    if(equals(item.Item1, vector))
+                    if (equals(item.Item1, vector))
                     {
                         dont_add = true;
                         break;
@@ -467,16 +537,58 @@ namespace EntryPoint
 
         public static bool equals(Vector2 v1, Vector2 v2)
         {
-            if( v1.X == v2.X && v1.Y == v2.Y)
+            if (v1.X == v2.X && v1.Y == v2.Y)
             {
                 return true;
             }
             return false;
         }
 
+        static ITree<Tuple<int, float>> update(ITree<Tuple<int, float>> root, Tuple<int, float> old_value, Tuple<int, float> new_value)
+        {
+            return Insert(delete(root, old_value), new_value);
+        }
+
+        static ITree<Tuple<int, float>> delete(ITree<Tuple<int, float>> root, Tuple<int, float> value)
+        {
+            if (root.IsEmpty)
+                return root;
+
+            if (value.Item2 < root.Value.Item2)
+                root.Left = delete(root.Left, value);
+
+            if (value.Item2 > root.Value.Item2)
+                root.Right = delete(root.Right, value);
+
+            if (value.Item2 == root.Value.Item2)
+            {
+                if (root.Left.IsEmpty && root.Right.IsEmpty)
+                {
+                    root = new BinaryEmpty<Tuple<int, float>>() as ITree<Tuple<int, float>>;
+                    return root;
+                }
+                else if(root.Left.IsEmpty)
+                {
+                    root = root.Right;
+                }
+                else if (root.Right.IsEmpty)
+                {
+                    root = root.Left;
+                }
+                else
+                {
+                    root.Value = root.Right.get_min();
+                    root.Right = delete(root.Right, root.Right.get_min());
+                }
+            }
+
+            return root;
+
+        }
+
     }
 
-   
+
 
 
 #endif
